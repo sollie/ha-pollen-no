@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Pollen Data (NO) Setup",
-        "description": "Set up the Norwegian Pollen Data integration\n\n⚠️ DISCLAIMER: This is an unofficial project and is not affiliated with NAAF (Norges Astma- og Allergiforbund).",
+        "title": "Pollen (NO) Setup",
+        "description": "Set up the Norwegian Pollen integration\n\n⚠️ DISCLAIMER: This is an unofficial project and is not affiliated with NAAF (Norges Astma- og Allergiforbund).",
         "data": {
           "hostname": "Hostname (with port if needed)"
         }
@@ -28,8 +28,8 @@
   "options": {
     "step": {
       "init": {
-        "title": "Pollen Data (NO) Options",
-        "description": "Configure optional settings for the Norwegian Pollen Data integration",
+        "title": "Pollen (NO) Options",
+        "description": "Configure optional settings for the Norwegian Pollen integration",
         "data": {
           "pollen_types": "Specific pollen types to monitor (leave empty for all active types)"
         }

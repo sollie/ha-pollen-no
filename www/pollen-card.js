@@ -19,7 +19,7 @@ class PollenCard extends HTMLElement {
     }
     
     this._config = {
-      title: config.title || 'Pollen Data',
+      title: config.title || 'Pollen (NO)',
       show_forecast: config.show_forecast !== false,
       show_levels: config.show_levels !== false,
       show_thresholds: config.show_thresholds !== false,
@@ -313,7 +313,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'pollen-card',
   name: 'Pollen Card',
-  description: 'A card for displaying pollen data from the Pollen Data integration',
+  description: 'A card for displaying pollen data from the Pollen integration',
   preview: true,
   documentationURL: 'https://github.com/sollie/pollendata'
 });

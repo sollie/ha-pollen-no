@@ -69,16 +69,16 @@ docker run -p 8080:8080 sollie/pollendata:latest
    - Click the three dots in the top right corner
    - Select "Custom repositories"
    - Add `https://github.com/sollie/ha-pollendata-no` as an Integration
-3. Search for "Pollen Data (NO)" in HACS and install it
+3. Search for "Pollen (NO)" in HACS and install it
 4. Restart Home Assistant
-5. Go to Configuration > Integrations and add the "Pollen Data (NO)" integration
+5. Go to Configuration > Integrations and add the "Pollen (NO)" integration
 
 ### Method 2: Manual Installation
 
 1. Copy the `custom_components/pollendata_no` folder to your Home Assistant's `custom_components` directory
 2. Copy the `www/pollen-card.js` file to your Home Assistant's `www` directory
 3. Restart Home Assistant
-4. Go to Configuration > Integrations and add the "Pollen Data (NO)" integration
+4. Go to Configuration > Integrations and add the "Pollen (NO)" integration
 
 ## Project Structure
 
@@ -93,7 +93,7 @@ This Home Assistant integration is separate from the backend service:
 
 1. Go to **Configuration** > **Integrations**
 2. Click the **+ Add Integration** button
-3. Search for "Pollen Data (NO)"
+3. Search for "Pollen (NO)"
 4. Enter your pollendata service hostname (examples below)
 5. Select your region from the available options
 6. Click **Submit**
@@ -109,7 +109,7 @@ This Home Assistant integration is separate from the backend service:
 After setting up the integration, you can configure additional options:
 
 1. Go to **Configuration** > **Integrations**
-2. Find your Pollen Data (NO) integration
+2. Find your Pollen (NO) integration
 3. Click **Configure**
 4. Select specific pollen types to monitor (optional)
 
@@ -150,7 +150,7 @@ forecast_entity: sensor.pollen_forecast
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `title` | string | "Pollen Data (NO)" | Card title |
+| `title` | string | "Pollen (NO)" | Card title |
 | `show_forecast` | boolean | true | Show forecast section |
 | `show_levels` | boolean | true | Show level names (Low, Moderate, etc.) |
 | `show_thresholds` | boolean | true | Show pollen count thresholds |
@@ -312,7 +312,6 @@ MIT License - see LICENSE file for details.
 ## Related Projects
 
 - [pollendata](https://github.com/sollie/pollendata) - The backend service for fetching pollen data
-- [Home Assistant](https://www.home-assistant.io/) - Open source home automation platform
 
 ---
 

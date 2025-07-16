@@ -1,6 +1,6 @@
 {
   "domain": "pollendata_no",
-  "name": "Pollen Data (NO)",
+  "name": "Pollen (NO)",
   "codeowners": ["@sollie"],
   "config_flow": true,
   "dependencies": [],
