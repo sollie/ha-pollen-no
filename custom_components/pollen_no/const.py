@@ -1,6 +1,6 @@
 """Constants for the Pollen Data integration."""
 
-DOMAIN = "pollendata_no"
+DOMAIN = "pollen_no"
 
 # Configuration keys
 CONF_HOSTNAME = "hostname"
