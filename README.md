@@ -24,7 +24,7 @@ You need a running instance of the **[pollendata service](https://github.com/sol
 
 **Option 1: Local Docker (Recommended for testing):**
 ```bash
-docker run -p 8080:8080 sollie/pollendata:latest
+docker run -p 8080:8080 ghcr.io/sollie/pollendata:1.2.0
 ```
 
 **Option 2: Private server hosting:**
@@ -49,11 +49,13 @@ docker run -p 8080:8080 sollie/pollendata:latest
 
 - **Norwegian pollen regions** - Support for all Norwegian regions with pollen monitoring
 - **Configurable hostname and region** - Connect to your pollendata service
-- **Active pollen filtering** - Only shows pollen types with data (level > 0)
+- **All pollen types always created** - Sensors for all types, state=0 when inactive (no entity churn)
 - **Optional pollen type filtering** - Monitor specific pollen types
+- **Multi-day forecast** - Today's level as state, upcoming days as `forecast` attribute
 - **Color-coded severity levels** - Visual indication of pollen levels (0-4)
-- **Forecast support** - Display text forecasts if available
-- **Custom Lovelace card** - Beautiful card with grid layout and color indicators
+- **Forecast text sensor** - Regional text forecast from NAAF
+- **Custom Lovelace card** - Card with expandable rows showing per-type multi-day forecast
+- **HTTP and HTTPS support** - Connect to local or remote service with any scheme
 - **Automatic updates** - Polls data every 30 minutes
 - **Proper error handling** - Graceful handling of connection issues
 
@@ -101,6 +103,7 @@ This Home Assistant integration is separate from the backend service:
 ### Hostname Examples:
 - **Local Docker**: `localhost:8080`
 - **Private server**: `192.168.1.100:8080` or `my-home-server.local:8080`
+- **With explicit scheme**: `http://localhost:8080` or `https://pollen.example.com`
 - **Public instance**: `pollen-api.someservice.com`
 - **Cloud deployment**: `my-pollen-service.herokuapp.com`
 
@@ -151,11 +154,13 @@ forecast_entity: sensor.pollen_forecast
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `title` | string | "Pollen (NO)" | Card title |
-| `show_forecast` | boolean | true | Show forecast section |
+| `show_forecast` | boolean | true | Show forecast text section |
 | `show_levels` | boolean | true | Show level names (Low, Moderate, etc.) |
 | `show_thresholds` | boolean | true | Show pollen count thresholds |
 | `entities` | list | auto-detect | Specific pollen sensor entities |
-| `forecast_entity` | string | auto-detect | Forecast sensor entity |
+| `forecast_entity` | string | auto-detect | Forecast text sensor entity |
+
+Each pollen row is expandable — tap to reveal upcoming forecast days with date, level badge, and level name.
 
 ## Pollen Types
 
@@ -170,11 +175,11 @@ The integration monitors the following pollen types as available from the Norweg
 | Grass | Gress | `sensor.pollen_grass` |
 | Mugwort | Burot | `sensor.pollen_mugwort` |
 
-> **Note**: Only pollen types with active data (level > 0) will create sensors in Home Assistant.
+> **Note**: Sensors are created for all pollen types at setup. State is `0` when a type is inactive — no entity churn as seasons change.
 
 ## Sensors
 
-The integration creates the following sensors:
+The integration creates the following sensors for every setup, regardless of active season:
 - `sensor.pollen_alder` - Alder pollen level (Or)
 - `sensor.pollen_hazel` - Hazel pollen level (Hassel)
 - `sensor.pollen_willow` - Willow pollen level (Salix)
@@ -182,8 +187,10 @@ The integration creates the following sensors:
 - `sensor.pollen_grass` - Grass pollen level (Gress)
 - `sensor.pollen_mugwort` - Mugwort pollen level (Burot)
 
+State is `0` when a type has no active data. All sensors persist through inactive seasons.
+
 ### Forecast Sensor
-- `sensor.pollen_forecast` - Text forecast (if available)
+- `sensor.pollen_forecast` - Regional text forecast from NAAF
 
 ## Pollen Levels
 
@@ -206,6 +213,7 @@ Each pollen sensor provides these attributes:
 - `color` - Hex color code for the level
 - `pollen_type` - Type of pollen
 - `region` - Geographic region
+- `forecast` - List of upcoming forecast days: `[{"date": "2026-05-04", "level": 2}, ...]`
 - `last_updated` - Last update timestamp
 
 ## Pollendata Service Requirements
@@ -295,6 +303,19 @@ custom_components/pollen_no/
 
 www/
 └── pollen-card.js      # Custom Lovelace card
+
+tests/
+├── conftest.py
+├── test_api.py
+├── test_config_flow.py
+├── test_coordinator.py
+├── test_sensor.py
+└── test_init.py
+
+Dockerfile.test          # Test container
+scripts/run-tests.sh     # Test runner (podman/docker auto-detect)
+pytest.ini               # Test configuration
+requirements_test.txt    # Test dependencies
 ```
 
 ### Contributing
