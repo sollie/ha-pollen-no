@@ -56,9 +56,6 @@ POLLEN_NAME_MAPPING = {
     "burot": "mugwort"
 }
 
-# Sensor device classes
-DEVICE_CLASS_POLLEN = "pollen"
-
 # Sensor icons (using Norwegian pollen types)
 POLLEN_ICONS = {
     "or": "mdi:tree",           # Alder

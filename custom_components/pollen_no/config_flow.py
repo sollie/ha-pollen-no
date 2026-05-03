@@ -1,14 +1,14 @@
 """Config flow for Pollen Data integration."""
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import voluptuous as vol
-from homeassistant import config_entries, core, exceptions
-from homeassistant.core import callback
+from homeassistant import config_entries, exceptions
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import PollenDataAPI, PollenDataAPIError
+from .api import PollenDataAPI, PollenDataAPIError, build_base_url
 from .const import (
     DOMAIN,
     CONF_HOSTNAME,
@@ -28,54 +28,55 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
+    """Cannot connect to API."""
 
 
 class InvalidHost(exceptions.HomeAssistantError):
-    """Error to indicate there is invalid host."""
+    """Invalid hostname or no regions returned."""
 
 
-async def validate_input(hass: core.HomeAssistant, data: dict) -> Dict[str, Any]:
-    """Validate the user input allows us to connect."""
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+    """Validate hostname and return available regions."""
+    try:
+        build_base_url(data[CONF_HOSTNAME])
+    except ValueError as err:
+        raise InvalidHost from err
+
     session = async_get_clientsession(hass)
     api = PollenDataAPI(hostname=data[CONF_HOSTNAME], session=session)
-    
-    # Test connection
+
     if not await api.test_connection():
         raise CannotConnect
-    
-    # Get available regions
+
     try:
         regions = await api.get_regions()
     except PollenDataAPIError as err:
-        _LOGGER.error("Error getting regions: %s", err)
         raise CannotConnect from err
-    
+
     if not regions:
         raise InvalidHost
-    
+
     return {"regions": regions}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Pollen Data."""
+    """Config flow for Pollen Data."""
 
     VERSION = 1
 
-    def __init__(self):
-        """Initialize config flow."""
-        self.regions = []
-        self.hostname = ""
+    def __init__(self) -> None:
+        """Initialize."""
+        self.regions: list[str] = []
+        self.hostname: str = ""
 
     async def async_step_user(
-        self, user_input: Optional[Dict[str, Any]] = None
+        self, user_input: Optional[dict[str, Any]] = None
     ) -> FlowResult:
-        """Handle the initial step."""
-        errors = {}
-        
+        """Handle initial step."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
             self.hostname = user_input[CONF_HOSTNAME]
-            
             try:
                 info = await validate_input(self.hass, user_input)
                 self.regions = info["regions"]
@@ -84,8 +85,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidHost:
                 errors["base"] = "invalid_host"
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+            except Exception:
+                _LOGGER.exception("Unexpected exception in config flow")
                 errors["base"] = "unknown"
 
         return self.async_show_form(
@@ -95,33 +96,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_region(
-        self, user_input: Optional[Dict[str, Any]] = None
+        self, user_input: Optional[dict[str, Any]] = None
     ) -> FlowResult:
-        """Handle the region step."""
-        errors = {}
-        
+        """Handle region selection step."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
             region = user_input[CONF_REGION]
-            
-            # Create entry with basic configuration
-            title = f"Pollen Data ({region})"
-            data = {
-                CONF_HOSTNAME: self.hostname,
-                CONF_REGION: region,
-            }
-            
-            return self.async_create_entry(title=title, data=data)
 
-        # Create region selection schema
-        region_schema = vol.Schema(
-            {
-                vol.Required(CONF_REGION): vol.In(self.regions),
-            }
-        )
+            await self.async_set_unique_id(f"{self.hostname}_{region}")
+            self._abort_if_unique_id_configured()
+
+            return self.async_create_entry(
+                title=f"Pollen Data ({region})",
+                data={
+                    CONF_HOSTNAME: self.hostname,
+                    CONF_REGION: region,
+                },
+            )
 
         return self.async_show_form(
             step_id="region",
-            data_schema=region_schema,
+            data_schema=vol.Schema({vol.Required(CONF_REGION): vol.In(self.regions)}),
             errors=errors,
         )
 
@@ -130,44 +126,33 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> "OptionsFlowHandler":
-        """Create the options flow."""
-        return OptionsFlowHandler(config_entry)
+        """Create options flow."""
+        return OptionsFlowHandler()
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle options flow for Pollen Data."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
+    """Options flow for Pollen Data."""
 
     async def async_step_init(
-        self, user_input: Optional[Dict[str, Any]] = None
+        self, user_input: Optional[dict[str, Any]] = None
     ) -> FlowResult:
-        """Manage the options."""
-        errors = {}
-        
+        """Manage options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(data=user_input)
 
-        # Get current options
-        current_pollen_types = self.config_entry.options.get(CONF_POLLEN_TYPES, [])
-        
-        # Create options schema
-        options_schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_POLLEN_TYPES,
-                    default=current_pollen_types,
-                ): vol.All(
-                    vol.Coerce(list),
-                    [vol.In(COMMON_POLLEN_TYPES)],
-                ),
-            }
-        )
+        current = self.config_entry.options.get(CONF_POLLEN_TYPES, [])
 
         return self.async_show_form(
             step_id="init",
-            data_schema=options_schema,
-            errors=errors,
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Optional(CONF_POLLEN_TYPES): vol.All(
+                            vol.Coerce(list),
+                            [vol.In(COMMON_POLLEN_TYPES)],
+                        ),
+                    }
+                ),
+                {CONF_POLLEN_TYPES: current},
+            ),
         )
