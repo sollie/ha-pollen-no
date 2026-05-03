@@ -74,12 +74,17 @@ class PollenSensor(CoordinatorEntity[PollenDataUpdateCoordinator], SensorEntity)
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return state attributes."""
         level = self.native_value
+        forecast = [
+            {"date": entry["date"], "level": entry["levels"].get(self.pollen_type, 0)}
+            for entry in self.coordinator.pollen_forecast
+        ]
         return {
             "level_name": POLLEN_LEVELS.get(level, "Unknown"),
             "level_threshold": POLLEN_THRESHOLDS.get(level, "Unknown"),
             "color": POLLEN_COLORS.get(level, "#000000"),
             "pollen_type": self.pollen_type,
             "region": self.region,
+            "forecast": forecast,
             "last_updated": self.coordinator.last_updated_time,
         }
 

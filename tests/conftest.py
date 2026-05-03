@@ -16,19 +16,39 @@ MOCK_REGION = "oslo"
 MOCK_REGIONS = ["oslo", "bergen", "trondheim"]
 
 MOCK_POLLEN_DATA = {
-    "or": 2,
-    "hassel": 1,
-    "salix": 0,
-    "bjork": 3,
-    "gress": 0,
-    "burot": 0,
+    "2026-05-03": {
+        "or": 2,
+        "hassel": 1,
+        "salix": 0,
+        "bjork": 3,
+        "gress": 0,
+        "burot": 0,
+    },
+    "2026-05-04": {
+        "or": 1,
+        "hassel": 0,
+        "salix": 0,
+        "bjork": 2,
+        "gress": 0,
+        "burot": 0,
+    },
+    "2026-05-05": {
+        "or": 1,
+        "hassel": 0,
+        "salix": 0,
+        "bjork": 2,
+        "gress": 0,
+        "burot": 0,
+    },
 }
 
 MOCK_COMBINED_DATA = {
     "pollen": MOCK_POLLEN_DATA,
-    "forecast": "Moderate birch pollen expected this week.",
+    "forecast": {"oslo": "Moderate birch pollen expected this week."},
     "last_updated": "2025-04-15T10:00:00Z",
 }
+
+MOCK_FORECAST_TEXT = "Moderate birch pollen expected this week."
 
 MOCK_CONFIG_ENTRY_DATA = {
     CONF_HOSTNAME: MOCK_HOSTNAME,
@@ -52,5 +72,5 @@ def mock_api():
     api.get_regions = AsyncMock(return_value=MOCK_REGIONS)
     api.get_combined_data = AsyncMock(return_value=MOCK_COMBINED_DATA)
     api.get_pollen_data = AsyncMock(return_value=MOCK_POLLEN_DATA)
-    api.get_forecast = AsyncMock(return_value=MOCK_COMBINED_DATA["forecast"])
+    api.get_forecast = AsyncMock(return_value=MOCK_FORECAST_TEXT)
     return api

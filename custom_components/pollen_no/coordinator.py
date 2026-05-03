@@ -1,5 +1,5 @@
 """Data update coordinator for Pollen Data."""
-from datetime import timedelta
+from datetime import date, timedelta
 import logging
 from typing import Any, Optional
 
@@ -53,14 +53,29 @@ class PollenDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not combined:
             raise UpdateFailed("No data received from API")
 
-        pollen: dict[str, int] = combined.get("pollen", {})
+        today_str = date.today().isoformat()
+        pollen_all: dict[str, dict[str, int]] = combined.get("pollen", {})
 
+        pollen_today: dict[str, int] = pollen_all.get(today_str, {})
         if self.pollen_types:
-            pollen = {k: v for k, v in pollen.items() if k in self.pollen_types}
+            pollen_today = {k: v for k, v in pollen_today.items() if k in self.pollen_types}
+
+        pollen_forecast = [
+            {"date": d, "levels": levels}
+            for d, levels in sorted(pollen_all.items())
+            if d != today_str
+        ]
+
+        raw_forecast = combined.get("forecast", "")
+        if isinstance(raw_forecast, dict):
+            forecast = raw_forecast.get(self.region, "")
+        else:
+            forecast = raw_forecast
 
         return {
-            "pollen": pollen,
-            "forecast": combined.get("forecast", ""),
+            "pollen": pollen_today,
+            "pollen_forecast": pollen_forecast,
+            "forecast": forecast,
             "last_updated": combined.get("last_updated", ""),
             "region": self.region,
         }
@@ -76,6 +91,13 @@ class PollenDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_test_connection(self) -> bool:
         """Test API connectivity."""
         return await self.api.test_connection()
+
+    @property
+    def pollen_forecast(self) -> list[dict[str, Any]]:
+        """List of forecast days: [{date, levels}, ...]."""
+        if not self.data:
+            return []
+        return self.data.get("pollen_forecast", [])
 
     @property
     def available_pollen_types(self) -> list[str]:

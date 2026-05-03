@@ -12,18 +12,38 @@ from custom_components.pollen_no.const import (
 )
 from custom_components.pollen_no.sensor import PollenSensor, PollenForecastSensor
 
-from tests.conftest import MOCK_HOSTNAME, MOCK_REGION, MOCK_COMBINED_DATA
+from tests.conftest import MOCK_HOSTNAME, MOCK_REGION, MOCK_FORECAST_TEXT
+
+TODAY = "2026-05-03"
+TOMORROW = "2026-05-04"
+DAY_AFTER = "2026-05-05"
+
+MOCK_TODAY_POLLEN = {"or": 2, "hassel": 1, "salix": 0, "bjork": 3, "gress": 0, "burot": 0}
+MOCK_POLLEN_FORECAST = [
+    {"date": TOMORROW, "levels": {"or": 1, "hassel": 0, "salix": 0, "bjork": 2, "gress": 0, "burot": 0}},
+    {"date": DAY_AFTER, "levels": {"or": 1, "hassel": 0, "salix": 0, "bjork": 2, "gress": 0, "burot": 0}},
+]
 
 
 def _make_coordinator(data=None, last_update_success=True):
     coord = MagicMock()
     coord.hostname = MOCK_HOSTNAME
     coord.last_update_success = last_update_success
-    coord.data = data or MOCK_COMBINED_DATA.copy()
-    coord.last_updated_time = data.get("last_updated", "") if data else ""
-    coord.available_pollen_types = [
-        k for k, v in (data or MOCK_COMBINED_DATA)["pollen"].items() if v > 0
-    ]
+    if data is None:
+        coord.data = {
+            "pollen": MOCK_TODAY_POLLEN,
+            "pollen_forecast": MOCK_POLLEN_FORECAST,
+            "forecast": MOCK_FORECAST_TEXT,
+            "last_updated": "",
+        }
+        coord.last_updated_time = ""
+        coord.available_pollen_types = [k for k, v in MOCK_TODAY_POLLEN.items() if v > 0]
+        coord.pollen_forecast = MOCK_POLLEN_FORECAST
+    else:
+        coord.data = data
+        coord.last_updated_time = data.get("last_updated", "")
+        coord.available_pollen_types = [k for k, v in data.get("pollen", {}).items() if v > 0]
+        coord.pollen_forecast = data.get("pollen_forecast", [])
     return coord
 
 
@@ -61,15 +81,15 @@ class TestPollenSensorState:
     def test_returns_level_from_coordinator_data(self):
         coord = _make_coordinator()
         sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
-        assert sensor.native_value == MOCK_COMBINED_DATA["pollen"]["bjork"]
+        assert sensor.native_value == MOCK_TODAY_POLLEN["bjork"]
 
     def test_returns_zero_when_type_absent(self):
         coord = _make_coordinator()
         sensor = PollenSensor(coordinator=coord, pollen_type="or", region=MOCK_REGION)
-        assert sensor.native_value == MOCK_COMBINED_DATA["pollen"]["or"]
+        assert sensor.native_value == MOCK_TODAY_POLLEN["or"]
 
     def test_returns_zero_when_no_data(self):
-        coord = _make_coordinator(data={"pollen": {}, "forecast": "", "last_updated": ""})
+        coord = _make_coordinator(data={"pollen": {}, "pollen_forecast": [], "forecast": "", "last_updated": ""})
         sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
         assert sensor.native_value == 0
 
@@ -85,7 +105,7 @@ class TestPollenSensorAttributes:
         coord = _make_coordinator()
         sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
         attrs = sensor.extra_state_attributes
-        expected_level = MOCK_COMBINED_DATA["pollen"]["bjork"]
+        expected_level = MOCK_TODAY_POLLEN["bjork"]
         assert attrs["level_name"] == POLLEN_LEVELS[expected_level]
 
     def test_color_matches_level(self):
@@ -103,6 +123,25 @@ class TestPollenSensorAttributes:
         coord = _make_coordinator()
         sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
         assert sensor.extra_state_attributes["region"] == MOCK_REGION
+
+    def test_forecast_attribute_is_list(self):
+        coord = _make_coordinator()
+        sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
+        forecast = sensor.extra_state_attributes["forecast"]
+        assert isinstance(forecast, list)
+        assert len(forecast) == 2
+
+    def test_forecast_attribute_contains_date_and_level(self):
+        coord = _make_coordinator()
+        sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
+        forecast = sensor.extra_state_attributes["forecast"]
+        assert forecast[0]["date"] == TOMORROW
+        assert forecast[0]["level"] == MOCK_POLLEN_FORECAST[0]["levels"]["bjork"]
+
+    def test_forecast_attribute_empty_when_no_forecast(self):
+        coord = _make_coordinator(data={"pollen": MOCK_TODAY_POLLEN, "pollen_forecast": [], "forecast": "", "last_updated": ""})
+        sensor = PollenSensor(coordinator=coord, pollen_type="bjork", region=MOCK_REGION)
+        assert sensor.extra_state_attributes["forecast"] == []
 
 
 class TestPollenSensorAvailability:
@@ -150,7 +189,7 @@ class TestPollenForecastSensor:
     def test_returns_forecast_text(self):
         coord = _make_coordinator()
         sensor = PollenForecastSensor(coordinator=coord, region=MOCK_REGION)
-        assert sensor.native_value == MOCK_COMBINED_DATA["forecast"]
+        assert sensor.native_value == MOCK_FORECAST_TEXT
 
     def test_returns_none_when_no_data(self):
         coord = _make_coordinator()
@@ -159,7 +198,7 @@ class TestPollenForecastSensor:
         assert sensor.native_value is None
 
     def test_returns_none_when_empty_forecast(self):
-        coord = _make_coordinator(data={"pollen": {}, "forecast": "", "last_updated": ""})
+        coord = _make_coordinator(data={"pollen": {}, "pollen_forecast": [], "forecast": "", "last_updated": ""})
         sensor = PollenForecastSensor(coordinator=coord, region=MOCK_REGION)
         assert sensor.native_value is None
 

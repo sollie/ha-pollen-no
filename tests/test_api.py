@@ -125,21 +125,27 @@ class TestGetRegions:
 
 
 class TestGetPollenData:
-    async def test_flat_levels(self):
+    async def test_date_keyed_response(self):
         api = _make_api()
-        api._request = AsyncMock(return_value={"bjork": 3, "gress": 0})
+        api._request = AsyncMock(return_value={
+            "2026-05-03": {"bjork": 3, "gress": 0},
+            "2026-05-04": {"bjork": 2, "gress": 1},
+        })
         result = await api.get_pollen_data("oslo")
-        assert result == {"bjork": 3, "gress": 0}
-
-    async def test_nested_level_key(self):
-        api = _make_api()
-        api._request = AsyncMock(return_value={"bjork": {"level": 2}})
-        result = await api.get_pollen_data("oslo")
-        assert result == {"bjork": 2}
+        assert result == {
+            "2026-05-03": {"bjork": 3, "gress": 0},
+            "2026-05-04": {"bjork": 2, "gress": 1},
+        }
 
     async def test_non_dict_response_returns_empty(self):
         api = _make_api()
         api._request = AsyncMock(return_value=[])
+        result = await api.get_pollen_data("oslo")
+        assert result == {}
+
+    async def test_skips_non_dict_day_values(self):
+        api = _make_api()
+        api._request = AsyncMock(return_value={"2026-05-03": "bad"})
         result = await api.get_pollen_data("oslo")
         assert result == {}
 
@@ -151,7 +157,13 @@ class TestGetForecast:
         result = await api.get_forecast("oslo")
         assert result == "High birch pollen"
 
-    async def test_dict_with_forecast_key(self):
+    async def test_region_keyed_dict(self):
+        api = _make_api()
+        api._request = AsyncMock(return_value={"oslo": "Low pollen", "bergen": "High pollen"})
+        result = await api.get_forecast("oslo")
+        assert result == "Low pollen"
+
+    async def test_dict_with_forecast_key_fallback(self):
         api = _make_api()
         api._request = AsyncMock(return_value={"forecast": "Low pollen"})
         result = await api.get_forecast("oslo")
@@ -174,14 +186,29 @@ class TestGetCombinedData:
     async def test_full_response(self):
         api = _make_api()
         api._request = AsyncMock(return_value={
-            "pollen": {"bjork": 3, "gress": 0},
-            "forecast": "Some text",
+            "pollen": {
+                "2026-05-03": {"bjork": 3, "gress": 0},
+                "2026-05-04": {"bjork": 2, "gress": 1},
+            },
+            "forecast": {"oslo": "Some text"},
             "last_updated": "2025-04-15T10:00:00Z",
         })
         result = await api.get_combined_data("oslo")
-        assert result["pollen"] == {"bjork": 3, "gress": 0}
+        assert result["pollen"] == {
+            "2026-05-03": {"bjork": 3, "gress": 0},
+            "2026-05-04": {"bjork": 2, "gress": 1},
+        }
         assert result["forecast"] == "Some text"
         assert result["last_updated"] == "2025-04-15T10:00:00Z"
+
+    async def test_forecast_string_passthrough(self):
+        api = _make_api()
+        api._request = AsyncMock(return_value={
+            "pollen": {},
+            "forecast": "Plain string forecast",
+        })
+        result = await api.get_combined_data("oslo")
+        assert result["forecast"] == "Plain string forecast"
 
     async def test_non_dict_returns_empty(self):
         api = _make_api()
@@ -191,9 +218,12 @@ class TestGetCombinedData:
 
     async def test_level_0_preserved(self):
         api = _make_api()
-        api._request = AsyncMock(return_value={"pollen": {"gress": 0}})
+        api._request = AsyncMock(return_value={
+            "pollen": {"2026-05-03": {"gress": 0}},
+            "forecast": {},
+        })
         result = await api.get_combined_data("oslo")
-        assert result["pollen"]["gress"] == 0
+        assert result["pollen"]["2026-05-03"]["gress"] == 0
 
 
 class TestTestConnection:

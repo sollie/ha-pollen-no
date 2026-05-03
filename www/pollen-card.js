@@ -9,7 +9,13 @@ class PollenCard extends LitElement {
     return {
       hass: { attribute: false },
       config: { attribute: false },
+      _expanded: { state: true },
     };
+  }
+
+  constructor() {
+    super();
+    this._expanded = {};
   }
 
   static get styles() {
@@ -38,19 +44,10 @@ class PollenCard extends LitElement {
         margin-right: 8px;
       }
       .pollen-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-      .pollen-item {
-        background: var(--card-background-color, white);
-        border: 1px solid var(--divider-color);
-        border-radius: 8px;
-        padding: 12px;
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 16px;
       }
       .pollen-info {
         display: flex;
@@ -120,6 +117,51 @@ class PollenCard extends LitElement {
         text-align: center;
         margin-top: 16px;
       }
+      .pollen-item {
+        background: var(--card-background-color, white);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 4px;
+      }
+      .pollen-item-row {
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+      }
+      .pollen-item-row:hover {
+        background: var(--secondary-background-color, rgba(0,0,0,0.04));
+      }
+      .forecast-days {
+        border-top: 1px solid var(--divider-color);
+        background: var(--secondary-background-color, rgba(0,0,0,0.02));
+      }
+      .forecast-day-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+      }
+      .forecast-day-row + .forecast-day-row {
+        border-top: 1px solid var(--divider-color);
+      }
+      .forecast-day-date {
+        flex: 1;
+      }
+      .expand-icon {
+        font-size: 0.8em;
+        color: var(--secondary-text-color);
+        margin-left: 8px;
+        transition: transform 0.2s;
+      }
+      .expand-icon.open {
+        transform: rotate(180deg);
+      }
     `;
   }
 
@@ -182,6 +224,15 @@ class PollenCard extends LitElement {
     return colors[Number(level)] ?? "#cccccc";
   }
 
+  _toggleExpanded(key) {
+    this._expanded = { ...this._expanded, [key]: !this._expanded[key] };
+  }
+
+  _formatDate(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  }
+
   _renderPollenItem(sensor) {
     const attrs = sensor.attributes || {};
     const level = sensor.state;
@@ -189,31 +240,52 @@ class PollenCard extends LitElement {
     const levelThreshold = attrs.level_threshold || "";
     const pollenType = attrs.pollen_type || sensor.entity_id;
     const color = this._levelColor(level);
+    const forecast = Array.isArray(attrs.forecast) ? attrs.forecast : [];
+    const key = sensor.entity_id;
+    const expanded = !!this._expanded[key];
 
     return html`
       <div class="pollen-item">
-        <div class="pollen-info">
-          <div class="pollen-name">${pollenType}</div>
-          ${this.config.show_levels
-            ? html`<div class="pollen-details">Level: ${levelName}</div>`
-            : ""}
-          ${this.config.show_thresholds && levelThreshold
-            ? html`<div class="pollen-details">
-                Range: ${levelThreshold} grains/m³
-              </div>`
-            : ""}
-        </div>
-        <div class="pollen-level">
-          <div
-            class="level-indicator"
-            style="background-color: ${color};"
-          >
-            ${level}
+        <div class="pollen-item-row" @click=${() => this._toggleExpanded(key)}>
+          <div class="pollen-info">
+            <div class="pollen-name">${pollenType}</div>
+            ${this.config.show_levels
+              ? html`<div class="pollen-details">Level: ${levelName}</div>`
+              : ""}
+            ${this.config.show_thresholds && levelThreshold
+              ? html`<div class="pollen-details">Range: ${levelThreshold} grains/m³</div>`
+              : ""}
           </div>
-          <div class="level-text">${levelName}</div>
+          <div class="pollen-level">
+            <div class="level-indicator" style="background-color: ${color};">${level}</div>
+            <div class="level-text">${levelName}</div>
+            ${forecast.length > 0
+              ? html`<span class="expand-icon ${expanded ? "open" : ""}">▼</span>`
+              : ""}
+          </div>
         </div>
+        ${expanded && forecast.length > 0
+          ? html`
+              <div class="forecast-days">
+                ${forecast.map((f) => html`
+                  <div class="forecast-day-row">
+                    <span class="forecast-day-date">${this._formatDate(f.date)}</span>
+                    <div class="pollen-level">
+                      <div class="level-indicator" style="background-color: ${this._levelColor(f.level)}; width:22px; height:22px; font-size:0.8em;">${f.level}</div>
+                      <span>${(this._levelName(f.level))}</span>
+                    </div>
+                  </div>
+                `)}
+              </div>
+            `
+          : ""}
       </div>
     `;
+  }
+
+  _levelName(level) {
+    const names = { 0: "None", 1: "Low", 2: "Moderate", 3: "High", 4: "Very High" };
+    return names[Number(level)] ?? "Unknown";
   }
 
   render() {

@@ -115,18 +115,21 @@ class PollenDataAPI:
         _LOGGER.error("Unexpected regions response: %s", data)
         return []
 
-    async def get_pollen_data(self, region: str) -> dict[str, int]:
-        """Get pollen data for a region. Returns all types with their levels."""
+    async def get_pollen_data(self, region: str) -> dict[str, dict[str, int]]:
+        """Get pollen data for a region. Returns date-keyed dict of type->level."""
         data = await self._request(API_POLLEN.format(region=region))
         if not isinstance(data, dict):
             _LOGGER.error("Unexpected pollen data response: %s", data)
             return {}
-        result: dict[str, int] = {}
-        for pollen_type, level in data.items():
-            if isinstance(level, (int, float)):
-                result[pollen_type] = int(level)
-            elif isinstance(level, dict):
-                result[pollen_type] = int(level.get("level", 0))
+        result: dict[str, dict[str, int]] = {}
+        for date_key, day_data in data.items():
+            if not isinstance(day_data, dict):
+                continue
+            result[date_key] = {
+                pollen_type: int(level)
+                for pollen_type, level in day_data.items()
+                if isinstance(level, (int, float))
+            }
         return result
 
     async def get_forecast(self, region: str) -> Optional[str]:
@@ -137,28 +140,43 @@ class PollenDataAPI:
             return None
         if isinstance(data, str):
             return data
-        if isinstance(data, dict) and "forecast" in data:
-            return data["forecast"]
+        if isinstance(data, dict):
+            if region in data:
+                return data[region]
+            if "forecast" in data:
+                return data["forecast"]
         return None
 
     async def get_combined_data(self, region: str) -> dict[str, Any]:
-        """Get combined pollen + forecast for a region. Returns all pollen levels."""
+        """Get combined pollen + forecast for a region.
+
+        Returns date-keyed pollen dict and forecast string.
+        """
         data = await self._request(API_COMBINED.format(region=region))
         if not isinstance(data, dict):
             _LOGGER.error("Unexpected combined response: %s", data)
             return {}
 
-        pollen_data = data.get("pollen", {})
-        pollen: dict[str, int] = {}
-        for pollen_type, level in pollen_data.items():
-            if isinstance(level, (int, float)):
-                pollen[pollen_type] = int(level)
-            elif isinstance(level, dict):
-                pollen[pollen_type] = int(level.get("level", 0))
+        raw_pollen = data.get("pollen", {})
+        pollen: dict[str, dict[str, int]] = {}
+        for date_key, day_data in raw_pollen.items():
+            if not isinstance(day_data, dict):
+                continue
+            pollen[date_key] = {
+                pollen_type: int(level)
+                for pollen_type, level in day_data.items()
+                if isinstance(level, (int, float))
+            }
+
+        raw_forecast = data.get("forecast", "")
+        if isinstance(raw_forecast, dict):
+            forecast_text = raw_forecast.get(region, "")
+        else:
+            forecast_text = raw_forecast
 
         return {
             "pollen": pollen,
-            "forecast": data.get("forecast", ""),
+            "forecast": forecast_text,
             "last_updated": data.get("last_updated", ""),
         }
 
