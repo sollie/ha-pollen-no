@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update version in manifest.json
+        run: |
+          version=$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')
+          sed -i "s/\"version\": \".*\"/\"version\": \"${version}\"/" custom_components/pollen_no/manifest.json
+
+      - name: Commit updated manifest
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add custom_components/pollen_no/manifest.json
+          git commit -m "Update version to ${{ github.event.release.tag_name }}" || exit 0
+          git push
